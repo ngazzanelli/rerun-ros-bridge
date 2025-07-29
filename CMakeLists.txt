@@ -6,12 +6,12 @@ FetchContent_Declare(rerun_sdk URL
     https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip)
 FetchContent_MakeAvailable(rerun_sdk)
 
-add_executable(leg_visualizer
-    src/leg_visualizer.cpp
-    src/leg_visualizer_node.cpp
+add_executable(rerun_visualizer
+    src/visualizer.cpp
+    src/visualizer_node.cpp
 )
 
-target_link_libraries(leg_visualizer
+target_link_libraries(rerun_visualizer
     PUBLIC 
     ${catkin_LIBRARIES}
     ${casadi_kin_dyn_LIBRARIES}
@@ -19,6 +19,6 @@ target_link_libraries(leg_visualizer
     rerun_sdk
 )
 
-install(TARGETS leg_visualizer
+install(TARGETS rerun_visualizer
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
