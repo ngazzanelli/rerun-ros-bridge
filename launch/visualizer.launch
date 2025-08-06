@@ -1,0 +1,9 @@
+<launch>
+
+    <arg name="config_file" default="$(find rerun_ros_bridge)/config/default_config.yaml"/>
+  
+    <node pkg="rerun_ros_bridge" type="rerun_visualizer" name="rerun_visualizer" output="screen">
+        <rosparam command="load" file="$(arg config_file)"/>
+    </node>
+
+</launch>

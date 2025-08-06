@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(rerun-ros-bridge)
+project(rerun_ros_bridge)
 
 add_compile_options(-std=c++17)
 
@@ -46,6 +46,16 @@ target_link_libraries(rerun_visualizer
     ${XBotInterface_LIBRARIES}
     PRIVATE
     rerun_sdk
+)
+
+install(DIRECTORY launch/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+  FILES_MATCHING PATTERN "*.launch"
+)
+
+install(DIRECTORY config/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
+  FILES_MATCHING PATTERN "*.yaml"
 )
 
 install(TARGETS rerun_visualizer
