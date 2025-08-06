@@ -1,4 +1,4 @@
-#include "leg_visualizer.h"
+#include "visualizer.h"
 #include <iostream>
 
 int main(int argc, char** argv)

@@ -1,4 +1,4 @@
-#include "leg_visualizer.h"
+#include "visualizer.h"
 #include <cmath>
 #include <algorithm>
 #include <sensor_msgs/PointField.h>
