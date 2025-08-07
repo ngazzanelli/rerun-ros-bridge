@@ -3,6 +3,7 @@
 #include <rerun.hpp>
 #include <mutex>
 #include <boost/circular_buffer.hpp>
+#include <boost/function.hpp>
 
 #include <ros/ros.h>
 #include <xbot_msgs/JointState.h>
@@ -17,8 +18,7 @@ namespace leg_analyzer {
 class LegAnalyzer {
 
   public:
-    LegAnalyzer(ros::NodeHandle& node_handle, const std::vector<std::string>& frames,
-                  int trail_length, bool rt_logging, bool visualize_perception, 
+    LegAnalyzer(ros::NodeHandle& node_handle, bool rt_logging, bool visualize_perception, 
                   bool ground_truth);
     ~LegAnalyzer(); 
 
@@ -33,6 +33,8 @@ class LegAnalyzer {
   private:
     std::shared_ptr<casadi_kin_dyn::CasadiKinDyn> _kin_dyn;
 
+    ros::NodeHandle _nh; 
+
     int _nq; 
     int _nframes; 
     int _trail_length; 
@@ -40,7 +42,9 @@ class LegAnalyzer {
     bool _init;
     bool _visualize_perception;
     bool _ground_truth;  
-     
+    
+    std::vector<std::string> _frames; 
+
     std::vector<float> _base_pose;
     std::mutex _base_pose_mutex; 
 
@@ -64,6 +68,8 @@ class LegAnalyzer {
     std::vector<std::vector<rerun::Position3D>> _pointclouds;
     std::vector<std::vector<rerun::Position3D>> _query_points, _proj_points;  
     
+    std::vector<ros::Subscriber> _subscribers; 
+
     ros::Subscriber _base_pose_subscriber;
     ros::Subscriber _joint_state_subscriber;
     ros::Subscriber _mpc_prediction_subscriber;
@@ -73,6 +79,9 @@ class LegAnalyzer {
     ros::Subscriber _proj_landing_subscriber;
     ros::Subscriber _ref_trj_subscriber;
     
+    bool loadParameters();
+    bool initSubscribers(const XmlRpc::XmlRpcValue& subscribers);  
+
     void basePoseCallback(const geometry_msgs::PoseStampedConstPtr& msg);
     void jointStateCallback(const xbot_msgs::JointStateConstPtr& msg); 
     void mpcPredictionCallback(const kyon_controller::WBTrajectoryConstPtr& msg); 

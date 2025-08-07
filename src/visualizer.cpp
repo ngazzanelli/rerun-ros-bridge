@@ -7,47 +7,49 @@ const double pi = M_PI;
 
 namespace leg_analyzer {
 
-LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, const std::vector<std::string>& frames,
-                          int trail_length, bool rt_logging, bool visualize_perception, bool ground_truth) : 
-_trail_length(trail_length),
+LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, bool rt_logging, bool visualize_perception, bool ground_truth) : 
+_nh(node_handle),
 _rt_logging(rt_logging),
 _visualize_perception(visualize_perception),
 _rec(rerun::RecordingStream("Leg Kinematics")),
 _init(true),
 _ground_truth(ground_truth)
 {
+  
+  bool parameters_loaded = loadParameters(); 
 
-  jmap = {};
+  jmap = {}; // we could read it from config.yaml
     
-  _joint_state_subscriber = node_handle.subscribe("/xbotcore/joint_states", 1, &LegAnalyzer::jointStateCallback, this);
-  _mpc_prediction_subscriber = node_handle.subscribe("/mpc_prediction", 1, &LegAnalyzer::mpcPredictionCallback, this);
-  _boundaries_subscriber = node_handle.subscribe("/convex_plane_decomposition_ros/boundaries", 1, &LegAnalyzer::boundariesCallback, this);
-  _pcl_subscriber = node_handle.subscribe("/elevation_mapping/elevation_map_points", 1, &LegAnalyzer::pclCallback, this); 
-  _query_landing_subscriber = node_handle.subscribe("/mpc_node/query_landing_poses", 1, &LegAnalyzer::queryPointCallback, this); 
-  _proj_landing_subscriber = node_handle.subscribe("/mpc_node/projected_landing_poses", 1, &LegAnalyzer::projectedPointCallback, this);
-  _ref_trj_subscriber = node_handle.subscribe("/reference_trj", 1, &LegAnalyzer::refTrjCallback, this); 
+  _joint_state_subscriber = _nh.subscribe("/xbotcore/joint_states", 1, &LegAnalyzer::jointStateCallback, this);
+  _mpc_prediction_subscriber = _nh.subscribe("/mpc_prediction", 1, &LegAnalyzer::mpcPredictionCallback, this);
+  _boundaries_subscriber = _nh.subscribe("/convex_plane_decomposition_ros/boundaries", 1, &LegAnalyzer::boundariesCallback, this);
+  _pcl_subscriber = _nh.subscribe("/elevation_mapping/elevation_map_points", 1, &LegAnalyzer::pclCallback, this); 
+  _query_landing_subscriber = _nh.subscribe("/mpc_node/query_landing_poses", 1, &LegAnalyzer::queryPointCallback, this); 
+  _proj_landing_subscriber = _nh.subscribe("/mpc_node/projected_landing_poses", 1, &LegAnalyzer::projectedPointCallback, this);
+  _ref_trj_subscriber = _nh.subscribe("/reference_trj", 1, &LegAnalyzer::refTrjCallback, this); 
 
   if(_ground_truth)
-    _base_pose_subscriber = node_handle.subscribe("/xbotcore/link_state/pelvis/pose", 1, &LegAnalyzer::basePoseCallback, this);
+    _base_pose_subscriber = _nh.subscribe("/xbotcore/link_state/pelvis/pose", 1, &LegAnalyzer::basePoseCallback, this);
 
   // Initialize CasadiKinDyn obj to compute forward kinematics 
   std::string urdf;
-  if (!node_handle.getParam("/robot_description", urdf))
+  if (!_nh.getParam("/robot_description", urdf))
       throw std::runtime_error("Invalid URDF string");
   _kin_dyn = std::make_shared<casadi_kin_dyn::CasadiKinDyn>(urdf, false, jmap);
-
   _nq = _kin_dyn->nq(); // Total number of joints
+
+
   _mpc_prediction.resize(_nq);
-  _nframes = frames.size(); 
+  _nframes = _frames.size(); 
 
   // Retrieve forward kinematics functions 
   for(int i = 0; i < _nframes; ++i)
-    _forward_kin_fncs.push_back(_kin_dyn->fk(frames[i])); 
+    _forward_kin_fncs.push_back(_kin_dyn->fk(_frames[i])); 
 
   // Initialize buffers for keeping trail_length points 
   _actual_trj.resize(_nframes); 
   for(int i =0; i < _nframes; ++i)
-    _actual_trj[i].resize(trail_length); 
+    _actual_trj[i].resize(_trail_length); 
   _predicted_trj.resize(_nframes);
   
   // Initialize base pose and joint states with a default value
@@ -66,6 +68,68 @@ _ground_truth(ground_truth)
 
 
 LegAnalyzer::~LegAnalyzer() = default;
+
+
+bool LegAnalyzer::loadParameters()
+{
+  // Load (mandatory) frames parameter
+  if(!_nh.getParam("frames/name", _frames) || _frames.empty()) {
+    ROS_ERROR("Frames not specified, the visualizer cannot be configured. Exit");
+    return false; 
+  }
+  _nh.param("frames/trail_length", _trail_length, 1);
+
+  // Load subcribers parameter
+  XmlRpc::XmlRpcValue subscribers;
+  _nh.getParam("subscribers", subscribers);
+  if(!subscribers.valid()) {
+    ROS_ERROR("Subscribers not specified; at least joint state must be present. Exit");
+    return false;
+  }
+
+  bool validate_subscribers = initSubscribers(subscribers); 
+
+  return validate_subscribers; 
+
+}
+
+
+bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
+{
+  // Check for (mandatory) joint state topic 
+  bool joint_state_found = false; 
+  std::string type; 
+   
+  for(auto& subscriber : subscribers) {
+    std::string key = subscriber.first;
+    std::string topic_name = subscriber.second["topic_name"];
+    auto type = static_cast<std::string>(subscriber.second["data_type"]);
+
+    if(type == "joint_states") {
+      // boost::function<void(const xbot_msgs::JointStateConstPtr&)> f = boost::bind(&LegAnalyzer::jointStateCallback, this, _1, key);
+      ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::jointStateCallback, this);
+      joint_state_found = true; 
+    }
+
+    else if(type == "marker") {
+      return false; 
+    }
+
+    else if(type == "marker_array")
+      return false;
+
+    else if(type == "pointcloud")
+      return false;
+
+    else {
+      ROS_WARN_STREAM("Data type \"" << type << "\" for subscriber \"" << key << "\" not supported."); 
+    }
+
+  }
+  // Manage Odometry 
+
+  return joint_state_found; 
+} 
 
 
 void LegAnalyzer::basePoseCallback(const geometry_msgs::PoseStampedConstPtr& msg)
