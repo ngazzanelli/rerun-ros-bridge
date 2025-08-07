@@ -1,3 +1,49 @@
+# Frames whose trajectory is to be computed through forward kinematics  
 frames:  
-  - name: aaa
+  name: ["contact_1", "contact_2", "contact_3", "contact_4"]
+  trail_length: 10 
+
+# Topic to retrieve odometry (in case of mobile robots)
+# floating_base_odom: 
+#   topic_name: "/mpc_solution"
+#   data_type: "wb_trajectory" # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
+#   size: 7 # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
+
+# Supported data types: {joint_states, marker, marker_array, pointcloud}
+# ODOM TO BE DECIDED 
+subscribers:
+  odom:
+    topic_name: "/mpc_solution"
+    data_type: "wb_trajectory"  # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
+    size: 7                     # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
+
+  joint_state:
+    topic_name: "/xbotcore/joint_states"
+    data_type: joint_states
+
+  test_param:
+    topic_name: "test_param"
+    data_type: not_known
+  
+  # convex_plane_boundaries:
+  #   topic_name: "/convex_plane_decomposition_ros/boundaries"
+  #   data_type: marker_array
+
+  # query_point:
+  #   topic_name: "/mpc_node/query_landing_poses"
+  #   data_type: marker
+  
+  # projected_point: 
+  #   topic_name: "/mpc_node/projected_landing_poses"
+  #   data_type: marker
+  
+  # pointclouds: 
+  #   topic_name: "/elevation_mapping/elevation_map_points"
+  #   data_type: pointcloud
+  
+  # reference_trajectory: 
+  #   topic_name: "/reference_trj"
+  #   data_type: marker
+
+
   
