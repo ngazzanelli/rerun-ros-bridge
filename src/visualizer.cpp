@@ -63,7 +63,7 @@ bool LegAnalyzer::loadParameters()
     ROS_ERROR("Frames not specified, the visualizer cannot be configured. Exit");
     return false; 
   }
-  _nh.param("frames/trail_length", _trail_length, 1);
+  _nh.param("frames/trail_length", _trail_length, 2);
 
   // Load subcribers parameter
   XmlRpc::XmlRpcValue subscribers;
