@@ -5,13 +5,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "leg_analyzer_node");
   ros::NodeHandle nodeHandle("~");
-  
-  // std::vector<std::string> frames; 
-  // if (!nodeHandle.getParam("frames", frames)) {
-  //   ROS_ERROR("Frames parameter not set: exiting.");
-  //   return 0; 
-  // }
- 
+   
   bool rt_logging = false;
   bool visualize_perception = true;
   bool ground_truth = false;  
