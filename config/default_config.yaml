@@ -13,9 +13,9 @@ frames:
 # ODOM TO BE DECIDED 
 subscribers:
   odom:
-    topic_name: "/mpc_solution"
-    data_type: "wb_trajectory"  # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
-    size: 7                     # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
+    topic_name: "/mpc_odom"
+    data_type: pose         # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
+    size: 7                 # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
 
   joint_state:
     topic_name: "/xbotcore/joint_states"
