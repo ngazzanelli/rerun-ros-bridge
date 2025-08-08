@@ -19,17 +19,6 @@ _ground_truth(ground_truth)
   bool parameters_loaded = loadParameters(); 
 
   jmap = {}; // we could read it from config.yaml
-    
-  _joint_state_subscriber = _nh.subscribe("/xbotcore/joint_states", 1, &LegAnalyzer::jointStateCallback, this);
-  _mpc_prediction_subscriber = _nh.subscribe("/mpc_prediction", 1, &LegAnalyzer::mpcPredictionCallback, this);
-  _boundaries_subscriber = _nh.subscribe("/convex_plane_decomposition_ros/boundaries", 1, &LegAnalyzer::boundariesCallback, this);
-  _pcl_subscriber = _nh.subscribe("/elevation_mapping/elevation_map_points", 1, &LegAnalyzer::pclCallback, this); 
-  _query_landing_subscriber = _nh.subscribe("/mpc_node/query_landing_poses", 1, &LegAnalyzer::queryPointCallback, this); 
-  _proj_landing_subscriber = _nh.subscribe("/mpc_node/projected_landing_poses", 1, &LegAnalyzer::projectedPointCallback, this);
-  _ref_trj_subscriber = _nh.subscribe("/reference_trj", 1, &LegAnalyzer::refTrjCallback, this); 
-
-  if(_ground_truth)
-    _base_pose_subscriber = _nh.subscribe("/xbotcore/link_state/pelvis/pose", 1, &LegAnalyzer::basePoseCallback, this);
 
   // Initialize CasadiKinDyn obj to compute forward kinematics 
   std::string urdf;
@@ -38,6 +27,7 @@ _ground_truth(ground_truth)
   _kin_dyn = std::make_shared<casadi_kin_dyn::CasadiKinDyn>(urdf, false, jmap);
   _nq = _kin_dyn->nq(); // Total number of joints
 
+  _joint_state = std::vector<float>(_nq - _base_pose.size(), 0);
 
   _mpc_prediction.resize(_nq);
   _nframes = _frames.size(); 
@@ -52,11 +42,7 @@ _ground_truth(ground_truth)
     _actual_trj[i].resize(_trail_length); 
   _predicted_trj.resize(_nframes);
   
-  // Initialize base pose and joint states with a default value
-  _base_pose = std::vector<float>(7, 0);
-  _base_pose[6] = 1.0; // Set the quaternion w component to 1 for identity rotation
-  _joint_state = std::vector<float>(_nq - 7, 0);
-
+  
   // Initialize full state vector 
   _full_state.reserve(_base_pose.size() + _joint_state.size());
   _full_state.insert(_full_state.end(), _base_pose.begin(), _base_pose.end());
@@ -108,7 +94,19 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     if(type == "joint_states") {
       // boost::function<void(const xbot_msgs::JointStateConstPtr&)> f = boost::bind(&LegAnalyzer::jointStateCallback, this, _1, key);
       ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::jointStateCallback, this);
-      joint_state_found = true; 
+      joint_state_found = true;
+      _subscribers.push_back(sub); 
+    }
+    
+    else if(key == "odom" and type == "pose") {
+      ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::basePoseCallback, this);
+      int size = subscriber.second["size"];
+
+      // Initialize base pose with a default value
+      _base_pose = std::vector<float>(size, 0);
+      if(size == 7)
+        _base_pose[6] = 1.0; // Set the quaternion w component to 1 for identity rotation
+      _subscribers.push_back(sub);
     }
 
     else if(type == "marker") {
@@ -148,8 +146,7 @@ void LegAnalyzer::basePoseCallback(const geometry_msgs::PoseStampedConstPtr& msg
 
 void LegAnalyzer::jointStateCallback(const xbot_msgs::JointStateConstPtr& msg)
 {
-
-  if (msg->name.size() != _nq - 7) {
+  if (msg->name.size() != _nq - _base_pose.size()) {
     throw std::runtime_error("Joint state size does not match the expected size.");
     return;
   }
