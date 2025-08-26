@@ -12,8 +12,9 @@ _nh(node_handle),
 _rt_logging(rt_logging),
 _visualize_perception(visualize_perception),
 _rec(rerun::RecordingStream("Leg Kinematics")),
+_ground_truth(ground_truth),
 _init(true),
-_ground_truth(ground_truth)
+_odom_provided(false)
 {
   
   bool parameters_loaded = loadParameters(); 
@@ -99,14 +100,17 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     }
     
     else if(key == "odom" and type == "pose") {
+      _odom_provided = true; 
+
       ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::basePoseCallback, this);
-      int size = subscriber.second["size"];
+      int size = 7; // quaternion representation, coherent with PoseStamped msg 
 
       // Initialize base pose with a default value
       _base_pose = std::vector<float>(size, 0);
-      if(size == 7)
-        _base_pose[6] = 1.0; // Set the quaternion w component to 1 for identity rotation
+      _base_pose[6] = 1.0; // Set the quaternion w component to 1 for identity rotation
+
       _subscribers.push_back(sub);
+    
     }
 
     else if(type == "marker") {
@@ -132,15 +136,9 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
 
 void LegAnalyzer::basePoseCallback(const geometry_msgs::PoseStampedConstPtr& msg)
 { 
-  std::lock_guard<std::mutex> lock(_base_pose_mutex);
-  _base_pose[0] = msg->pose.position.x;
-  _base_pose[1] = msg->pose.position.y;
-  _base_pose[2] = msg->pose.position.z;
-  _base_pose[3] = msg->pose.orientation.x;
-  _base_pose[4] = msg->pose.orientation.y;
-  _base_pose[5] = msg->pose.orientation.z;
-  _base_pose[6] = msg->pose.orientation.w;
-
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  _latest_odom = msg; 
+  tryUpdateState();
 }
 
 
@@ -151,10 +149,9 @@ void LegAnalyzer::jointStateCallback(const xbot_msgs::JointStateConstPtr& msg)
     return;
   }
 
-  std::lock_guard<std::mutex> lock(_joint_state_mutex);
-  for (size_t i = 0; i < msg->name.size(); ++i) {
-    _joint_state[i] = msg->motor_position[i];
-  }
+  std::lock_guard<std::mutex> lock(_data_mutex);
+  _latest_joint_states = msg; 
+  tryUpdateState(); 
 
 }
 
@@ -367,27 +364,69 @@ void LegAnalyzer::refTrjCallback(const visualization_msgs::MarkerConstPtr& msg)
 }
 
 
-void LegAnalyzer::updateState()
+void LegAnalyzer::tryUpdateState() 
 {
- 
-  {
-  std::lock_guard<std::mutex> lock(_base_pose_mutex); 
-  for (int i = 0; i < _base_pose.size(); ++i)
-    _full_state[i] = _base_pose[i];
-  }
-  
-  {
-  std::lock_guard<std::mutex> lock(_joint_state_mutex);
-  for (int j = 0; j < _joint_state.size(); ++j)
-    _full_state[j + 7] = _joint_state[j];
+
+  // In case odometry is not provided...
+  if (!_odom_provided) {
+    for (int i = 0; i < _joint_state.size(); ++i)
+      _full_state[i] = _latest_joint_states->motor_position[i];
+
+    ros::Time reference_time = _latest_joint_states->header.stamp;
+    double ros_time = reference_time.toSec(); 
+
+    computeForwardKinematics(ros_time);
+
+    return; 
   }
 
-  computeForwardKinematics(); 
+  // ...otherwise, compute kinematics at a frequency equal to the
+  // lower between odom and joint states
+  else {
+    if(!_latest_odom || !_latest_joint_states) {
+      // std::cout << "tryUpdateState(): exiting..." << std::endl; 
+      return; 
+    }
+    
+    // Get timestamps
+    ros::Time odom_time = _latest_odom->header.stamp;
+    ros::Time joint_time = _latest_joint_states->header.stamp;
+
+    // Check if both data have not been processed before
+    if ((!last_processed_odom_time_.isZero() && odom_time <= last_processed_odom_time_) ||
+        (!last_processed_joint_time_.isZero() && joint_time <= last_processed_joint_time_)) {
+        return; 
+    }
+
+    // Use the more recent timestamp as reference
+    ros::Time reference_time = (odom_time > joint_time) ? odom_time : joint_time;
+
+    // Check temporal synchronization
+    double time_diff_sec = std::abs((odom_time - joint_time).toSec());
+    
+    // Fill _full_state 
+    _full_state[0] = _latest_odom->pose.position.x;
+    _full_state[1] = _latest_odom->pose.position.y;
+    _full_state[2] = _latest_odom->pose.position.z;
+    _full_state[3] = _latest_odom->pose.orientation.x;
+    _full_state[4] = _latest_odom->pose.orientation.y;
+    _full_state[5] = _latest_odom->pose.orientation.z;
+    _full_state[6] = _latest_odom->pose.orientation.w;
+
+    for (int j = 0; j < _joint_state.size(); ++j)
+      _full_state[j + _base_pose.size()] = _latest_joint_states->motor_position[j];
+
+    // Update last processed timestamps for both topics
+    last_processed_odom_time_ = odom_time;
+    last_processed_joint_time_ = joint_time;
+
+    computeForwardKinematics(reference_time.toSec()); 
+  }
 
 }
 
 
-void LegAnalyzer::computeForwardKinematics()
+void LegAnalyzer::computeForwardKinematics(double ros_time)
 {
   // Prepare input and output structures 
   casadi::DMDict fk_input = {{"q", casadi::DM(_full_state)}};
@@ -430,7 +469,7 @@ void LegAnalyzer::computeForwardKinematics()
     
   }
 
-  double ros_time = ros::Time::now().toSec(); 
+  // double ros_time = ros::Time::now().toSec(); 
   // Rerun Visualization 
   if(_rt_logging) {
     _rec.set_time_duration_secs("ros_time", ros_time);

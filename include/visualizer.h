@@ -25,8 +25,8 @@ class LegAnalyzer {
     std::map<std::string, double> jmap;  
     const rerun::RecordingStream _rec; 
 
-    void computeForwardKinematics();
-    void updateState();
+    void computeForwardKinematics(double ros_time);
+    void tryUpdateState(); 
     void offlineLogTrj(); 
     
 
@@ -40,8 +40,16 @@ class LegAnalyzer {
     int _trail_length; 
     bool _rt_logging; 
     bool _init;
+    bool _odom_provided; 
     bool _visualize_perception;
     bool _ground_truth;  
+
+    // Data synchronization
+    std::mutex _data_mutex;
+    geometry_msgs::PoseStampedConstPtr _latest_odom;
+    xbot_msgs::JointStateConstPtr _latest_joint_states;
+    ros::Time last_processed_odom_time_;
+    ros::Time last_processed_joint_time_;
     
     std::vector<std::string> _frames; 
 
