@@ -7,9 +7,8 @@ const double pi = M_PI;
 
 namespace leg_analyzer {
 
-LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, bool rt_logging, bool visualize_perception, bool ground_truth) : 
+LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, bool visualize_perception, bool ground_truth) : 
 _nh(node_handle),
-_rt_logging(rt_logging),
 _visualize_perception(visualize_perception),
 _rec(rerun::RecordingStream("Leg Kinematics")),
 _ground_truth(ground_truth),
@@ -315,15 +314,9 @@ void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
    
   double ros_time = ros::Time::now().toSec();
 
-  if(_rt_logging) {
-    _rec.set_time_duration_secs("ros_time", ros_time);
-    _rec.log("pointcloud", rerun::Points3D(points).with_colors(colors));  
-  }
-  else {
-    _pointclouds.push_back(points);
-    _ros_timeline_pcl.push_back(ros_time);
-  } 
-   
+  _pointclouds.push_back(points);
+   _ros_timeline_pcl.push_back(ros_time);
+  
 }
 
 
@@ -458,21 +451,11 @@ void LegAnalyzer::computeForwardKinematics(double ros_time)
     
   }
 
-  // double ros_time = ros::Time::now().toSec(); 
   // Rerun Visualization 
-  if(_rt_logging) {
-    _rec.set_time_duration_secs("ros_time", ros_time);
-    std::vector<rerun::Color> trj_colors = {0x0099ffFF, 0xff8000FF, 0x00b33cFF, 0xcc0099FF};
-    std::vector<rerun::Color> trj_colors_p = {0x0099ff55, 0xff800055, 0x00b33c55, 0xcc009955};
-    _rec.log("actual_position", rerun::LineStrips3D().with_strips(strips_actual).with_colors(trj_colors).with_radii(0.002f));
-    _rec.log("predicted_position", rerun::LineStrips3D().with_strips(strips_predicted).with_colors(trj_colors_p).with_radii(0.003f));
-  }
-  else {
-    _ros_timeline_trjs.push_back(ros_time);
-    _strips_actual_offline.push_back(strips_actual);
-    _strips_predicted_offline.push_back(strips_predicted);
-  }
-
+  _ros_timeline_trjs.push_back(ros_time);
+  _strips_actual_offline.push_back(strips_actual);
+  _strips_predicted_offline.push_back(strips_predicted);
+  
 }
 
 
@@ -506,7 +489,6 @@ void LegAnalyzer::offlineLogTrj()
     for(int j = 0; j < _marker_arrays[i].ros_timeline.size(); ++j) {
       _rec.set_time_duration_secs("ros_time", _marker_arrays[i].ros_timeline[j]);
       _rec.log(_marker_arrays[i].key, rerun::LineStrips3D(_marker_arrays[i].markers[j]).with_colors(_marker_arrays[i].colors[j]).with_radii(0.005f));
-      std::cout << "Logging: " << _marker_arrays[i].markers[j].size() << std::endl; 
     }
   }
 

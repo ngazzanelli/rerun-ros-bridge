@@ -36,8 +36,7 @@ struct MarkerArrayData {
 class LegAnalyzer {
 
   public:
-    LegAnalyzer(ros::NodeHandle& node_handle, bool rt_logging, bool visualize_perception, 
-                  bool ground_truth);
+    LegAnalyzer(ros::NodeHandle& node_handle, bool visualize_perception, bool ground_truth);
     ~LegAnalyzer(); 
 
     std::map<std::string, double> jmap;  
