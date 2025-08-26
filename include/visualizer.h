@@ -24,6 +24,15 @@ struct MarkerData {
   std::optional<double> radius;  
 }; 
 
+
+struct MarkerArrayData {
+  std::string key; 
+  std::vector<std::vector<rerun::LineStrip3D>> markers;
+  std::vector<double> ros_timeline;
+  std::vector<std::vector<rerun::Color>> colors; 
+};
+
+
 class LegAnalyzer {
 
   public:
@@ -71,7 +80,10 @@ class LegAnalyzer {
 
     // Marker data structure
     std::vector<struct MarkerData> _markers; 
-  
+
+    // Marker array data strucutre
+    std::vector<struct MarkerArrayData> _marker_arrays; 
+    
     std::vector<std::vector<double>> _mpc_prediction;  
     std::vector<std::vector<rerun::Position3D>> _predicted_trj;
     std::vector<boost::circular_buffer<rerun::Position3D>> _actual_trj;
@@ -103,7 +115,7 @@ class LegAnalyzer {
     void basePoseCallback(const geometry_msgs::PoseStampedConstPtr& msg);
     void jointStateCallback(const xbot_msgs::JointStateConstPtr& msg); 
     void mpcPredictionCallback(const kyon_controller::WBTrajectoryConstPtr& msg); 
-    void boundariesCallback(const visualization_msgs::MarkerArrayConstPtr& msg); 
+    void markerArrayCallback(const visualization_msgs::MarkerArrayConstPtr& msg, int i);
     void pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg); 
     void markerCallback(const visualization_msgs::MarkerConstPtr& msg, int i); 
      

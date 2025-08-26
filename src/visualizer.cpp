@@ -87,7 +87,7 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
   bool joint_state_found = false; 
   std::string type; 
 
-  int marker_count = 0;
+  int marker_count = 0, marker_array_count = 0;
   int pointcloud_count = 0; 
    
   for(auto& subscriber : subscribers) {
@@ -96,7 +96,6 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     auto type = static_cast<std::string>(subscriber.second["data_type"]);
 
     if(type == "joint_states") {
-      // boost::function<void(const xbot_msgs::JointStateConstPtr&)> f = boost::bind(&LegAnalyzer::jointStateCallback, this, _1, key);
       ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::jointStateCallback, this);
       joint_state_found = true;
       _subscribers.push_back(sub); 
@@ -139,9 +138,19 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
 
     }
 
-    else if(type == "marker_array")
-      return false;
+    else if(type == "marker_array") {
+      struct MarkerArrayData marker_data_array;
+      marker_data_array.key = key; 
 
+      _marker_arrays.push_back(marker_data_array);
+
+      boost::function<void(const visualization_msgs::MarkerArrayConstPtr&)> f = boost::bind(&LegAnalyzer::markerArrayCallback, this, _1, marker_array_count);
+      ros::Subscriber sub = _nh.subscribe<visualization_msgs::MarkerArrayConstPtr>(topic_name, 1, f);
+      _subscribers.push_back(sub); 
+
+      marker_array_count++;
+    }
+    
     else if(type == "pointcloud") {
       ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::pclCallback, this);
       _subscribers.push_back(sub);
@@ -205,8 +214,10 @@ void LegAnalyzer::mpcPredictionCallback(const kyon_controller::WBTrajectoryConst
 }
 
 
-void LegAnalyzer::boundariesCallback(const visualization_msgs::MarkerArrayConstPtr& msg)
+void LegAnalyzer::markerArrayCallback(const visualization_msgs::MarkerArrayConstPtr& msg, int i)
 {
+  double ros_time = msg->markers[0].header.stamp.toSec();
+
   std::vector<rerun::Position3D> boundary;
   std::vector<rerun::LineStrip3D> boundaries; 
   std::vector<rerun::Color> colors;
@@ -231,19 +242,13 @@ void LegAnalyzer::boundariesCallback(const visualization_msgs::MarkerArrayConstP
       colors.push_back(tmp_color);
       boundary.clear(); 
     }
-  }
-  
-  double ros_time = ros::Time::now().toSec(); 
-  if(_rt_logging) {
-    _rec.set_time_duration_secs("ros_time", ros_time);
-    _rec.log("boundaries", rerun::LineStrips3D(boundaries).with_colors(colors).with_radii(0.005f)); 
-  }
-  else {
-    _ros_timeline_boundaries.push_back(ros_time); 
-    _boundaries_offline.push_back(boundaries);
-    _boundaries_colors.push_back(colors); 
-  }
+  }  
 
+  _marker_arrays[i].ros_timeline.push_back(ros_time); 
+  _marker_arrays[i].markers.push_back(boundaries);
+  _marker_arrays[i].colors.push_back(colors); 
+
+  return; 
 }
 
 
@@ -488,7 +493,7 @@ void LegAnalyzer::offlineLogTrj()
   // Visualize markers 
   for(int i = 0; i < _markers.size(); ++i) {
 
-    rerun::Color color(rerun::datatypes::Rgba32(_markers[i].color.value())); 
+    rerun::Color color(rerun::datatypes::Rgba32(_markers[i].color.value_or(0x00))); 
     float radius = _markers[i].radius.value_or(0.02f);
 
     for(int j = 0; j < _markers[i].ros_timeline.size(); ++j) {
@@ -497,12 +502,21 @@ void LegAnalyzer::offlineLogTrj()
     }
   }
 
+  // Visualize marker arrays
+  for(int i = 0; i < _marker_arrays.size(); ++i) {
+    for(int j = 0; j < _marker_arrays[i].ros_timeline.size(); ++j) {
+      _rec.set_time_duration_secs("ros_time", _marker_arrays[i].ros_timeline[j]);
+      _rec.log(_marker_arrays[i].key, rerun::LineStrips3D(_marker_arrays[i].markers[j]).with_colors(_marker_arrays[i].colors[j]).with_radii(0.005f));
+      std::cout << "Logging: " << _marker_arrays[i].markers[j].size() << std::endl; 
+    }
+  }
+
   // WORK IN PROGRESS
   if(_visualize_perception) { 
-    for(int i = 0; i < _ros_timeline_boundaries.size(); ++i) {
-      _rec.set_time_duration_secs("ros_time", _ros_timeline_boundaries[i]);
-      _rec.log("boundaries", rerun::LineStrips3D(_boundaries_offline[i]).with_colors(_boundaries_colors[i]).with_radii(0.005f));
-    }
+    // for(int i = 0; i < _ros_timeline_boundaries.size(); ++i) {
+    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_boundaries[i]);
+    //   _rec.log("boundaries", rerun::LineStrips3D(_boundaries_offline[i]).with_colors(_boundaries_colors[i]).with_radii(0.005f));
+    // }
     for(int i = 0; i < _ros_timeline_pcl.size(); ++i) {
       _rec.set_time_duration_secs("ros_time", _ros_timeline_pcl[i]);
       _rec.log("pointclouds", rerun::Points3D(_pointclouds[i]).with_colors(rerun::Color({0x73737388})));
