@@ -26,9 +26,9 @@ subscribers:
     topic_name: "test_param"
     data_type: not_known
   
-  # convex_plane_boundaries:
-  #   topic_name: "/convex_plane_decomposition_ros/boundaries"
-  #   data_type: marker_array
+  convex_plane_boundaries:
+    topic_name: "/convex_plane_decomposition_ros/boundaries"
+    data_type: marker_array
 
   query_point:
     topic_name: "/mpc_node/query_landing_poses"
