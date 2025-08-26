@@ -120,8 +120,10 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     else if(type == "marker_array")
       return false;
 
-    else if(type == "pointcloud")
-      return false;
+    else if(type == "pointcloud") {
+      ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::pclCallback, this);
+      _subscribers.push_back(sub);
+    }
 
     else {
       ROS_WARN_STREAM("Data type \"" << type << "\" for subscriber \"" << key << "\" not supported."); 

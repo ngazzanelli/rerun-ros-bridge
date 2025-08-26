@@ -37,9 +37,9 @@ subscribers:
   #   topic_name: "/mpc_node/projected_landing_poses"
   #   data_type: marker
   
-  # pointclouds: 
-  #   topic_name: "/elevation_mapping/elevation_map_points"
-  #   data_type: pointcloud
+  pointclouds: 
+    topic_name: "/elevation_mapping/elevation_map_points"
+    data_type: pointcloud
   
   # reference_trajectory: 
   #   topic_name: "/reference_trj"
