@@ -3,20 +3,21 @@ frames:
   name: ["contact_1", "contact_2", "contact_3", "contact_4"]
   trail_length: 10 
 
-# Topic to retrieve odometry (in case of mobile robots)
+
 # floating_base_odom: 
 #   topic_name: "/mpc_solution"
 #   data_type: "wb_trajectory" # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
 #   size: 7 # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
 
-# Supported data types: {joint_states, marker, marker_array, pointcloud}
-# ODOM TO BE DECIDED 
+# Supported data types: {joint_states, pose, marker, marker_array, pointcloud}
 subscribers:
+
+  # Topic to retrieve odometry (in case of mobile robots)
+  # At the moment, PoseStamped msg only is supported
   odom:
     topic_name: "/mpc_odom"
-    data_type: pose         # Here we should accept poseStamped only to be coherent (and avoid using custom msgs)
-    size: 7                 # Can be 6 (e.g. position + rpy) or 7 (position + quaternion)
-
+    data_type: pose         
+    
   joint_state:
     topic_name: "/xbotcore/joint_states"
     data_type: joint_states
