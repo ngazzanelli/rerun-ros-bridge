@@ -55,14 +55,11 @@ class LegAnalyzer {
     
 
   private:
-    std::shared_ptr<casadi_kin_dyn::CasadiKinDyn> _kin_dyn;
-
     ros::NodeHandle _nh; 
 
     int _nq; 
     int _nframes; 
     int _trail_length; 
-    bool _rt_logging; 
     bool _init;
     bool _odom_provided; 
     bool _ground_truth;  
@@ -74,15 +71,16 @@ class LegAnalyzer {
     ros::Time last_processed_odom_time_;
     ros::Time last_processed_joint_time_;
     
+    // Kinematics related data structures
+    std::shared_ptr<casadi_kin_dyn::CasadiKinDyn> _kin_dyn;
     std::vector<std::string> _frames; 
-
-    std::vector<float> _base_pose;
-
-    std::vector<float> _joint_state;
-
-    std::vector<float> _full_state;
     std::vector<casadi::Function> _forward_kin_fncs; 
 
+    // State related data structures
+    std::vector<float> _base_pose;
+    std::vector<float> _joint_state;
+    std::vector<float> _full_state;
+    
     // Marker data structure
     std::vector<struct MarkerData> _markers; 
 
@@ -92,28 +90,19 @@ class LegAnalyzer {
     // Pointcloud data structures
     std::vector<struct PointCloudData> _pointclouds; 
 
+    // WORK IN PROGRESS ON PREDICTED TRAJECTORY
     std::vector<std::vector<double>> _mpc_prediction;  
     std::vector<std::vector<rerun::Position3D>> _predicted_trj;
     std::vector<boost::circular_buffer<rerun::Position3D>> _actual_trj;
     std::vector<std::vector<rerun::Position3D>> _ref_trj;
+    ros::Subscriber _mpc_prediction_subscriber;
     
-    // std::vector<std::vector<rerun::Position3D>> _pointclouds;
+    std::vector<double> _ros_timeline_trjs;
     std::vector<std::vector<rerun::LineStrip3D>> _strips_actual_offline, _strips_predicted_offline; 
-    std::vector<std::vector<rerun::LineStrip3D>> _boundaries_offline;
-    std::vector<std::vector<rerun::Color>> _boundaries_colors;
-    std::vector<std::vector<rerun::Position3D>> _pointclouds;
-    std::vector<std::vector<rerun::Position3D>> _query_points, _proj_points;  
     
     std::vector<ros::Subscriber> _subscribers; 
 
-    ros::Subscriber _base_pose_subscriber;
-    ros::Subscriber _joint_state_subscriber;
-    ros::Subscriber _mpc_prediction_subscriber;
-    ros::Subscriber _boundaries_subscriber;
-    ros::Subscriber _pcl_subscriber; 
-    ros::Subscriber _query_landing_subscriber;
-    ros::Subscriber _proj_landing_subscriber;
-    ros::Subscriber _ref_trj_subscriber;
+    
     
     bool loadParameters();
     bool initSubscribers(const XmlRpc::XmlRpcValue& subscribers);  
