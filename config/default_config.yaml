@@ -30,21 +30,23 @@ subscribers:
   #   topic_name: "/convex_plane_decomposition_ros/boundaries"
   #   data_type: marker_array
 
-  # query_point:
-  #   topic_name: "/mpc_node/query_landing_poses"
-  #   data_type: marker
+  query_point:
+    topic_name: "/mpc_node/query_landing_poses"
+    data_type: marker
   
-  # projected_point: 
-  #   topic_name: "/mpc_node/projected_landing_poses"
-  #   data_type: marker
+  projected_point: 
+    topic_name: "/mpc_node/projected_landing_poses"
+    data_type: marker
   
   pointclouds: 
     topic_name: "/elevation_mapping/elevation_map_points"
     data_type: pointcloud
   
-  # reference_trajectory: 
-  #   topic_name: "/reference_trj"
-  #   data_type: marker
+  reference_trajectory: 
+    topic_name: "/reference_trj"
+    data_type: marker
+    color: "0xfcec03AA"
+    radius: 0.003
 
 
   
