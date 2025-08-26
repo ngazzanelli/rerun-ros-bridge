@@ -150,8 +150,16 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     }
     
     else if(type == "pointcloud") {
-      ros::Subscriber sub = _nh.subscribe(topic_name, 1, &LegAnalyzer::pclCallback, this);
+      struct PointCloudData pointcloud_data; 
+      pointcloud_data.key = key; 
+      
+      _pointclouds.push_back(pointcloud_data);
+
+      boost::function<void(const sensor_msgs::PointCloud2ConstPtr&)> f = boost::bind(&LegAnalyzer::pclCallback, this, _1, pointcloud_count);
+      ros::Subscriber sub = _nh.subscribe(topic_name, 1, f);
       _subscribers.push_back(sub);
+
+      pointcloud_count++; 
     }
 
     else {
@@ -250,8 +258,10 @@ void LegAnalyzer::markerArrayCallback(const visualization_msgs::MarkerArrayConst
 }
 
 
-void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
+void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg, int i)
 {
+  double ros_time = msg->header.stamp.toSec();
+
   size_t x_offset, y_offset, z_offset, rgb_offset;
   bool has_x{false}, has_y{false}, has_z{false}, has_rgb{false};
 
@@ -282,7 +292,7 @@ void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 
   if (!has_x || !has_y || !has_z) {
     _rec.log(
-        "pointcloud",
+        _pointclouds[i].key,
         rerun::TextLog("Currently only PointCloud2 messages with x, y, z fields are supported")
     );
     return;
@@ -312,11 +322,9 @@ void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
       }
   }
    
-  double ros_time = ros::Time::now().toSec();
-
-  _pointclouds.push_back(points);
-   _ros_timeline_pcl.push_back(ros_time);
-  
+  _pointclouds[i].pointcloud.push_back(points);
+  _pointclouds[i].ros_timeline.push_back(ros_time);
+   
 }
 
 
@@ -492,13 +500,12 @@ void LegAnalyzer::offlineLogTrj()
     }
   }
 
-  // WORK IN PROGRESS
-  if(_visualize_perception) { 
-    for(int i = 0; i < _ros_timeline_pcl.size(); ++i) {
-      _rec.set_time_duration_secs("ros_time", _ros_timeline_pcl[i]);
-      _rec.log("pointclouds", rerun::Points3D(_pointclouds[i]).with_colors(rerun::Color({0x73737388})));
+  // Visualize Pointclouds
+  for(int i = 0; i < _pointclouds.size(); ++i) {
+    for(int j= 0; j < _pointclouds[i].ros_timeline.size(); ++j) {
+      _rec.set_time_duration_secs("ros_time", _pointclouds[i].ros_timeline[j]);
+      _rec.log(_pointclouds[i].key, rerun::Points3D(_pointclouds[i].pointcloud[j]).with_colors(rerun::Color({0x73737388})));
     }
-
   } 
 
 }

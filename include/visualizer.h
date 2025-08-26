@@ -33,6 +33,13 @@ struct MarkerArrayData {
 };
 
 
+struct PointCloudData {
+  std::string key; 
+  std::vector<std::vector<rerun::Position3D>> pointcloud;
+  std::vector<double> ros_timeline; 
+};
+
+
 class LegAnalyzer {
 
   public:
@@ -83,14 +90,15 @@ class LegAnalyzer {
     // Marker array data strucutre
     std::vector<struct MarkerArrayData> _marker_arrays; 
     
+    // Pointcloud data structures
+    std::vector<struct PointCloudData> _pointclouds; 
+
     std::vector<std::vector<double>> _mpc_prediction;  
     std::vector<std::vector<rerun::Position3D>> _predicted_trj;
     std::vector<boost::circular_buffer<rerun::Position3D>> _actual_trj;
     std::vector<std::vector<rerun::Position3D>> _ref_trj;
     
-    std::vector<double> _ros_timeline_trjs, _ros_timeline_boundaries, _ros_timeline_pcl;
-    std::vector<double> _ros_timeline_query_points, _ros_timeline_proj_points;
-    std::vector<double> _ros_timeline_ref_trj; 
+    // std::vector<std::vector<rerun::Position3D>> _pointclouds;
     std::vector<std::vector<rerun::LineStrip3D>> _strips_actual_offline, _strips_predicted_offline; 
     std::vector<std::vector<rerun::LineStrip3D>> _boundaries_offline;
     std::vector<std::vector<rerun::Color>> _boundaries_colors;
@@ -115,7 +123,7 @@ class LegAnalyzer {
     void jointStateCallback(const xbot_msgs::JointStateConstPtr& msg); 
     void mpcPredictionCallback(const kyon_controller::WBTrajectoryConstPtr& msg); 
     void markerArrayCallback(const visualization_msgs::MarkerArrayConstPtr& msg, int i);
-    void pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg); 
+    void pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg, int i); 
     void markerCallback(const visualization_msgs::MarkerConstPtr& msg, int i); 
      
 };
