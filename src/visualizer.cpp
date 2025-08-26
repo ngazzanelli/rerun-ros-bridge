@@ -86,6 +86,9 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
   // Check for (mandatory) joint state topic 
   bool joint_state_found = false; 
   std::string type; 
+
+  int marker_count = 0;
+  int pointcloud_count = 0; 
    
   for(auto& subscriber : subscribers) {
     std::string key = subscriber.first;
@@ -114,7 +117,26 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     }
 
     else if(type == "marker") {
-      return false; 
+      struct MarkerData marker_data;
+      marker_data.key = key; 
+      
+      if(subscriber.second.hasMember("color")) {
+        const auto& color_string = subscriber.second["color"];
+        uint32_t color = static_cast<uint32_t>(std::stoul(color_string, nullptr, 16));
+        marker_data.color = color;
+      }
+
+      if(subscriber.second.hasMember("radius"))
+        marker_data.radius = static_cast<double>(subscriber.second["radius"]);
+    
+      _markers.push_back(marker_data);
+
+      boost::function<void(const visualization_msgs::MarkerConstPtr&)> f = boost::bind(&LegAnalyzer::markerCallback, this, _1, marker_count);
+      ros::Subscriber sub = _nh.subscribe<visualization_msgs::MarkerConstPtr>(topic_name, 1, f);
+      _subscribers.push_back(sub); 
+
+      marker_count++; 
+
     }
 
     else if(type == "marker_array")
@@ -130,8 +152,7 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
     }
 
   }
-  // Manage Odometry 
-
+  
   return joint_state_found; 
 } 
 
@@ -302,67 +323,29 @@ void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 }
 
 
-void LegAnalyzer::queryPointCallback(const visualization_msgs::MarkerConstPtr& msg)
-{
+void LegAnalyzer::markerCallback(const visualization_msgs::MarkerConstPtr& msg, int i) {
   double ros_time = msg->header.stamp.toSec(); 
-  std::vector<rerun::Position3D> points; 
+  std::vector<rerun::Position3D> points;
 
   for(int i = 0; i < msg->points.size(); ++i) {
     rerun::Position3D tmp(msg->points[i].x, msg->points[i].y, msg->points[i].z);
     points.push_back(tmp); 
   }
 
-  if(_rt_logging) {
-  _rec.set_time_duration_secs("ros_time", ros_time);
-  _rec.log("query_landing_points", rerun::Points3D(points).with_colors(rerun::Color({0xb3000088})).with_radii(0.03f)); 
+  _markers[i].points.push_back(points);
+  _markers[i].ros_timeline.push_back(ros_time);   
+
+  if(!_markers[i].color.has_value()) {
+    uint8_t r,g,b,a; 
+    r = static_cast<uint8_t>(msg->color.r * 255.0f);
+    g = static_cast<uint8_t>(msg->color.g * 255.0f);
+    b = static_cast<uint8_t>(msg->color.b * 255.0f);
+    a = static_cast<uint8_t>(msg->color.a * 255.0f);
+    
+    rerun::datatypes::Rgba32 color(r, g, b, a); 
+    _markers[i].color = color.rgba; 
   }
-  else {
-    _query_points.push_back(points);
-    _ros_timeline_query_points.push_back(ros_time);
-  }
-
-}
-
-
-void LegAnalyzer::projectedPointCallback(const visualization_msgs::MarkerConstPtr& msg)
-{
-  double ros_time = msg->header.stamp.toSec(); 
-  std::vector<rerun::Position3D> points; 
-
-  for(int i = 0; i < msg->points.size(); ++i) {
-    rerun::Position3D tmp(msg->points[i].x, msg->points[i].y, msg->points[i].z);
-    points.push_back(tmp); 
-  }
-
-  if(_rt_logging) {
-  _rec.set_time_duration_secs("ros_time", ros_time);
-  _rec.log("projected_landing_points", rerun::Points3D(points).with_colors(rerun::Color({0x00993388})).with_radii(0.03f)); 
-  }
-  else {
-    _proj_points.push_back(points);
-    _ros_timeline_proj_points.push_back(ros_time);
-  }
-}
-
-
-void LegAnalyzer::refTrjCallback(const visualization_msgs::MarkerConstPtr& msg)
-{
-  double ros_time = msg->header.stamp.toSec(); 
-  std::vector<rerun::Position3D> points; 
-
-  for(int i = 0; i < msg->points.size(); ++i) {
-    rerun::Position3D tmp(msg->points[i].x, msg->points[i].y, msg->points[i].z);
-    points.push_back(tmp); 
-  }
-
-  if(_rt_logging) {
-  _rec.set_time_duration_secs("ros_time", ros_time);
-  _rec.log("reference_trj", rerun::Points3D(points).with_colors(rerun::Color({0xfcec03AA})).with_radii(0.03f)); 
-  }
-  else {
-    _ref_trj.push_back(points);
-    _ros_timeline_ref_trj.push_back(ros_time);
-  }
+  
 }
 
 
@@ -495,12 +478,26 @@ void LegAnalyzer::offlineLogTrj()
   std::vector<rerun::Color> trj_colors = {0x0099ffFF, 0xff8000FF, 0x00b33cFF, 0xcc0099FF};
   std::vector<rerun::Color> trj_colors_p = {0x0099ff55, 0xff800055, 0x00b33c55, 0xcc009955};
 
+  // Visualize trajectories
   for(int i = 0; i < _ros_timeline_trjs.size(); ++i) {
     _rec.set_time_duration_secs("ros_time", _ros_timeline_trjs[i]);
     _rec.log("actual_position", rerun::LineStrips3D().with_strips(_strips_actual_offline[i]).with_colors(trj_colors).with_radii(0.002f));
-    _rec.log("predicted_position", rerun::LineStrips3D().with_strips(_strips_predicted_offline[i]).with_colors(trj_colors_p).with_radii(0.003f));  
+    // _rec.log("predicted_position", rerun::LineStrips3D().with_strips(_strips_predicted_offline[i]).with_colors(trj_colors_p).with_radii(0.003f));  
   } 
 
+  // Visualize markers 
+  for(int i = 0; i < _markers.size(); ++i) {
+
+    rerun::Color color(rerun::datatypes::Rgba32(_markers[i].color.value())); 
+    float radius = _markers[i].radius.value_or(0.02f);
+
+    for(int j = 0; j < _markers[i].ros_timeline.size(); ++j) {
+      _rec.set_time_duration_secs("ros_time", _markers[i].ros_timeline[j]);  
+      _rec.log(_markers[i].key, rerun::Points3D(_markers[i].points[j]).with_colors(color).with_radii(radius));
+    }
+  }
+
+  // WORK IN PROGRESS
   if(_visualize_perception) { 
     for(int i = 0; i < _ros_timeline_boundaries.size(); ++i) {
       _rec.set_time_duration_secs("ros_time", _ros_timeline_boundaries[i]);
@@ -510,18 +507,19 @@ void LegAnalyzer::offlineLogTrj()
       _rec.set_time_duration_secs("ros_time", _ros_timeline_pcl[i]);
       _rec.log("pointclouds", rerun::Points3D(_pointclouds[i]).with_colors(rerun::Color({0x73737388})));
     }
-    for(int i = 0; i < _ros_timeline_query_points.size(); ++i) {
-      _rec.set_time_duration_secs("ros_time", _ros_timeline_query_points[i]);
-      _rec.log("query_landing_points", rerun::Points3D(_query_points[i]).with_colors(rerun::Color({0xb3000088})).with_radii(0.02f));
-    }
-    for(int i = 0; i < _ros_timeline_proj_points.size(); ++i) {
-      _rec.set_time_duration_secs("ros_time", _ros_timeline_proj_points[i]);
-      _rec.log("projected_landing_points", rerun::Points3D(_proj_points[i]).with_colors(rerun::Color({0x00993388})).with_radii(0.02f));
-    }
-    for(int i = 0; i < _ros_timeline_ref_trj.size(); ++i) {
-      _rec.set_time_duration_secs("ros_time", _ros_timeline_ref_trj[i]);
-      _rec.log("reference_trj", rerun::Points3D(_ref_trj[i]).with_colors(rerun::Color({0xfcec03AA})).with_radii(0.003f));
-    }
+
+    // for(int i = 0; i < _ros_timeline_query_points.size(); ++i) {
+    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_query_points[i]);
+    //   _rec.log("query_landing_points", rerun::Points3D(_query_points[i]).with_colors(rerun::Color({0xb3000088})).with_radii(0.02f));
+    // }
+    // for(int i = 0; i < _ros_timeline_proj_points.size(); ++i) {
+    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_proj_points[i]);
+    //   _rec.log("projected_landing_points", rerun::Points3D(_proj_points[i]).with_colors(rerun::Color({0x00993388})).with_radii(0.02f));
+    // }
+    // for(int i = 0; i < _ros_timeline_ref_trj.size(); ++i) {
+    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_ref_trj[i]);
+    //   _rec.log("reference_trj", rerun::Points3D(_ref_trj[i]).with_colors(rerun::Color({0xfcec03AA})).with_radii(0.003f));
+    // }
   } 
 
 }

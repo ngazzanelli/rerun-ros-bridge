@@ -4,6 +4,7 @@
 #include <mutex>
 #include <boost/circular_buffer.hpp>
 #include <boost/function.hpp>
+#include <optional>
 
 #include <ros/ros.h>
 #include <xbot_msgs/JointState.h>
@@ -14,6 +15,14 @@
 #include "kyon_controller/WBTrajectory.h"
 
 namespace leg_analyzer {
+
+struct MarkerData {
+  std::string key; 
+  std::vector<std::vector<rerun::Position3D>> points;
+  std::vector<double> ros_timeline;
+  std::optional<uint32_t> color;
+  std::optional<double> radius;  
+}; 
 
 class LegAnalyzer {
 
@@ -54,13 +63,14 @@ class LegAnalyzer {
     std::vector<std::string> _frames; 
 
     std::vector<float> _base_pose;
-    std::mutex _base_pose_mutex; 
 
     std::vector<float> _joint_state;
-    std::mutex _joint_state_mutex; 
 
     std::vector<float> _full_state;
     std::vector<casadi::Function> _forward_kin_fncs; 
+
+    // Marker data structure
+    std::vector<struct MarkerData> _markers; 
   
     std::vector<std::vector<double>> _mpc_prediction;  
     std::vector<std::vector<rerun::Position3D>> _predicted_trj;
@@ -95,9 +105,7 @@ class LegAnalyzer {
     void mpcPredictionCallback(const kyon_controller::WBTrajectoryConstPtr& msg); 
     void boundariesCallback(const visualization_msgs::MarkerArrayConstPtr& msg); 
     void pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg); 
-    void queryPointCallback(const visualization_msgs::MarkerConstPtr& msg); 
-    void projectedPointCallback(const visualization_msgs::MarkerConstPtr& msg); 
-    void refTrjCallback(const visualization_msgs::MarkerConstPtr& msg); 
+    void markerCallback(const visualization_msgs::MarkerConstPtr& msg, int i); 
      
 };
 
