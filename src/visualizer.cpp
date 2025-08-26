@@ -30,6 +30,7 @@ _odom_provided(false)
 
   _joint_state = std::vector<float>(_nq - _base_pose.size(), 0);
 
+  // _mpc_prediction_subscriber = _nh.subscribe("/mpc_prediction", 1, &LegAnalyzer::mpcPredictionCallback, this);
   _mpc_prediction.resize(_nq);
   _nframes = _frames.size(); 
 
@@ -112,7 +113,6 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
       _base_pose[6] = 1.0; // Set the quaternion w component to 1 for identity rotation
 
       _subscribers.push_back(sub);
-    
     }
 
     else if(type == "marker") {
@@ -135,7 +135,6 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
       _subscribers.push_back(sub); 
 
       marker_count++; 
-
     }
 
     else if(type == "marker_array") {
@@ -513,27 +512,11 @@ void LegAnalyzer::offlineLogTrj()
 
   // WORK IN PROGRESS
   if(_visualize_perception) { 
-    // for(int i = 0; i < _ros_timeline_boundaries.size(); ++i) {
-    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_boundaries[i]);
-    //   _rec.log("boundaries", rerun::LineStrips3D(_boundaries_offline[i]).with_colors(_boundaries_colors[i]).with_radii(0.005f));
-    // }
     for(int i = 0; i < _ros_timeline_pcl.size(); ++i) {
       _rec.set_time_duration_secs("ros_time", _ros_timeline_pcl[i]);
       _rec.log("pointclouds", rerun::Points3D(_pointclouds[i]).with_colors(rerun::Color({0x73737388})));
     }
 
-    // for(int i = 0; i < _ros_timeline_query_points.size(); ++i) {
-    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_query_points[i]);
-    //   _rec.log("query_landing_points", rerun::Points3D(_query_points[i]).with_colors(rerun::Color({0xb3000088})).with_radii(0.02f));
-    // }
-    // for(int i = 0; i < _ros_timeline_proj_points.size(); ++i) {
-    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_proj_points[i]);
-    //   _rec.log("projected_landing_points", rerun::Points3D(_proj_points[i]).with_colors(rerun::Color({0x00993388})).with_radii(0.02f));
-    // }
-    // for(int i = 0; i < _ros_timeline_ref_trj.size(); ++i) {
-    //   _rec.set_time_duration_secs("ros_time", _ros_timeline_ref_trj[i]);
-    //   _rec.log("reference_trj", rerun::Points3D(_ref_trj[i]).with_colors(rerun::Color({0xfcec03AA})).with_radii(0.003f));
-    // }
   } 
 
 }
