@@ -43,7 +43,7 @@ struct PointCloudData {
 class LegAnalyzer {
 
   public:
-    LegAnalyzer(ros::NodeHandle& node_handle, bool visualize_perception, bool ground_truth);
+    LegAnalyzer(ros::NodeHandle& node_handle, bool ground_truth);
     ~LegAnalyzer(); 
 
     std::map<std::string, double> jmap;  
@@ -65,7 +65,6 @@ class LegAnalyzer {
     bool _rt_logging; 
     bool _init;
     bool _odom_provided; 
-    bool _visualize_perception;
     bool _ground_truth;  
 
     // Data synchronization

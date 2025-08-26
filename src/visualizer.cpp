@@ -7,9 +7,8 @@ const double pi = M_PI;
 
 namespace leg_analyzer {
 
-LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, bool visualize_perception, bool ground_truth) : 
+LegAnalyzer::LegAnalyzer(ros::NodeHandle& node_handle, bool ground_truth) : 
 _nh(node_handle),
-_visualize_perception(visualize_perception),
 _rec(rerun::RecordingStream("Leg Kinematics")),
 _ground_truth(ground_truth),
 _init(true),
