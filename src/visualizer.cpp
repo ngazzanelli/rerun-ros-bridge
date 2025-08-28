@@ -294,21 +294,21 @@ void LegAnalyzer::pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg, int i
     if (field.name == "x") {
         x_offset = field.offset;
         if (field.datatype != sensor_msgs::PointField::FLOAT32) {
-            _rec.log("pointcloud", rerun::TextLog("Only FLOAT32 x field supported"));
+            _rec.log(_pointclouds[i].key, rerun::TextLog("Only FLOAT32 x field supported"));
             return;
         }
         has_x = true;
     } else if (field.name == "y") {
         y_offset = field.offset;
         if (field.datatype != sensor_msgs::PointField::FLOAT32) {
-            _rec.log("pointcloud", rerun::TextLog("Only FLOAT32 y field supported"));
+            _rec.log(_pointclouds[i].key, rerun::TextLog("Only FLOAT32 y field supported"));
             return;
         }
         has_y = true;
     } else if (field.name == "z") {
         z_offset = field.offset;
         if (field.datatype != sensor_msgs::PointField::FLOAT32) {
-            _rec.log("pointcloud", rerun::TextLog("Only FLOAT32 z field supported"));
+            _rec.log(_pointclouds[i].key, rerun::TextLog("Only FLOAT32 z field supported"));
             return;
         }
         has_z = true;
