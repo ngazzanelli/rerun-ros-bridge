@@ -36,7 +36,9 @@ struct MarkerArrayData {
 struct PointCloudData {
   std::string key; 
   std::vector<std::vector<rerun::Position3D>> pointcloud;
-  std::vector<double> ros_timeline; 
+  std::vector<double> ros_timeline;
+  std::optional<float> prune_factor; // TBD   
+};
 };
 
 
