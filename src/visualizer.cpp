@@ -221,7 +221,8 @@ void LegAnalyzer::mpcPredictionCallback(const kyon_controller::WBTrajectoryConst
 
 void LegAnalyzer::markerArrayCallback(const visualization_msgs::MarkerArrayConstPtr& msg, int i)
 {
-  double ros_time = msg->markers[0].header.stamp.toSec();
+  int nmarkers = msg->markers.size(); 
+  double ros_time = msg->markers[nmarkers-1].header.stamp.toSec();
 
   std::vector<rerun::Position3D> boundary;
   std::vector<rerun::LineStrip3D> boundaries; 
