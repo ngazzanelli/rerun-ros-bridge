@@ -18,7 +18,7 @@ find_package(pinocchio REQUIRED)
 
 include(FetchContent)
 FetchContent_Declare(rerun_sdk URL
-    https://github.com/rerun-io/rerun/releases/download/0.23.3/rerun_cpp_sdk.zip)
+    https://github.com/rerun-io/rerun/releases/download/0.24.1/rerun_cpp_sdk.zip)
 FetchContent_MakeAvailable(rerun_sdk)
 
 catkin_package(
