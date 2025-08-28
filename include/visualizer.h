@@ -39,6 +39,14 @@ struct PointCloudData {
   std::vector<double> ros_timeline;
   std::optional<float> prune_factor; // TBD   
 };
+
+
+struct ScalarData {
+  std::string key; 
+  std::vector<double> data; 
+  std::vector<double> ros_timeline; 
+  // TBD float data_size;          
+  // TBD std::string topic_field;
 };
 
 
@@ -92,6 +100,9 @@ class LegAnalyzer {
     // Pointcloud data structures
     std::vector<struct PointCloudData> _pointclouds; 
 
+    // Scalar data structures
+    std::vector<struct ScalarData> _scalars; 
+
     // WORK IN PROGRESS ON PREDICTED TRAJECTORY
     std::vector<std::vector<double>> _mpc_prediction;  
     std::vector<std::vector<rerun::Position3D>> _predicted_trj;
@@ -115,7 +126,7 @@ class LegAnalyzer {
     void markerArrayCallback(const visualization_msgs::MarkerArrayConstPtr& msg, int i);
     void pclCallback(const sensor_msgs::PointCloud2ConstPtr& msg, int i); 
     void markerCallback(const visualization_msgs::MarkerConstPtr& msg, int i); 
-     
+    void scalarCallback(const xbot_msgs::JointStateConstPtr& msg, int i);
 };
 
 } // namespace leg_analyzer

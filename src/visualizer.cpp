@@ -87,7 +87,8 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
   std::string type; 
 
   int marker_count = 0, marker_array_count = 0;
-  int pointcloud_count = 0; 
+  int pointcloud_count = 0;
+  int scalar_count = 0;  
    
   for(auto& subscriber : subscribers) {
     std::string key = subscriber.first;
@@ -159,6 +160,30 @@ bool LegAnalyzer::initSubscribers(const XmlRpc::XmlRpcValue& subscribers)
       _subscribers.push_back(sub);
 
       pointcloud_count++; 
+    }
+
+    else if(type == "scalar") {
+      struct ScalarData scalar_data;
+      scalar_data.key = key;  
+
+      _scalars.push_back(scalar_data);
+
+      boost::function<void(const xbot_msgs::JointStateConstPtr&)> f = boost::bind(&LegAnalyzer::scalarCallback, this, _1, scalar_count);
+      ros::Subscriber sub = _nh.subscribe(topic_name, 1, f);
+      _subscribers.push_back(sub);
+
+      if(subscriber.second.hasMember("size")) {
+        // TBD
+        continue; 
+      }
+
+      if(subscriber.second.hasMember("field")) {
+        // TBD
+        continue; 
+      }
+
+      scalar_count++;
+
     }
 
     else {
@@ -354,6 +379,16 @@ void LegAnalyzer::markerCallback(const visualization_msgs::MarkerConstPtr& msg, 
 }
 
 
+void LegAnalyzer::scalarCallback(const xbot_msgs::JointStateConstPtr& msg, int i) {
+  double ros_time = msg->header.stamp.toSec(); 
+  
+  // At the moment, it is hardcoded
+  _scalars[i].data.push_back(msg->effort[0]);
+  _scalars[i].ros_timeline.push_back(ros_time); 
+
+}
+
+
 void LegAnalyzer::tryUpdateState() 
 {
 
@@ -500,7 +535,7 @@ void LegAnalyzer::offlineLogTrj()
     }
   }
 
-  // Visualize Pointclouds
+  // Visualize pointclouds
   for(int i = 0; i < _pointclouds.size(); ++i) {
     for(int j= 0; j < _pointclouds[i].ros_timeline.size(); ++j) {
       _rec.set_time_duration_secs("ros_time", _pointclouds[i].ros_timeline[j]);
@@ -508,7 +543,14 @@ void LegAnalyzer::offlineLogTrj()
     }
   } 
 
-}
+  // Visualize scalars
+  for(int i = 0; i < _scalars.size(); ++i) {
+    for(int j = 0; j < _scalars[i].ros_timeline.size(); ++j) {
+      _rec.set_time_duration_secs("ros_time", _scalars[i].ros_timeline[j]); 
+      _rec.log(_scalars[i].key, rerun::Scalars(_scalars[i].data[j]));
+    }
+  }
 
+}
 
 } // namespace leg_analyzer
